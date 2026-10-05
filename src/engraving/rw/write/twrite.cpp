@@ -494,7 +494,10 @@ void TWrite::writeSystemDividers(const Score* score, XmlWriter& xml, WriteContex
 
 void TWrite::writeItemEid(const EngravingObject* item, XmlWriter& xml, WriteContext& ctx)
 {
-    if (ctx.configuration()->doNotSaveEIDsForBackCompat() || item->score()->isPaletteScore() || ctx.clipboardmode()) {
+    // Internal snapshots need IDs to resolve links and system-lock endpoints,
+    // regardless of the compatibility preference used for normal saves.
+    if ((!ctx.snapshotMode() && ctx.configuration()->doNotSaveEIDsForBackCompat())
+        || item->score()->isPaletteScore() || ctx.clipboardmode()) {
         return;
     }
 
@@ -2081,7 +2084,7 @@ void TWrite::write(const InstrChannel* item, XmlWriter& xml, const Part* part, b
 
     if (part && part->score() == part->masterScore()
         && (snapshotMode ? (item->channel() >= 0
-                           && static_cast<size_t>(item->channel()) < part->masterScore()->midiMapping().size())
+                            && static_cast<size_t>(item->channel()) < part->masterScore()->midiMapping().size())
             : part->masterScore()->exportMidiMapping())) {
         xml.tag("midiPort",    part->masterScore()->midiMapping(item->channel())->port());
         xml.tag("midiChannel", part->masterScore()->midiMapping(item->channel())->channel());

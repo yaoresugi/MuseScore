@@ -115,6 +115,8 @@ protected:
 
         ON_CALL(*globalContext, currentProject()).WillByDefault(Invoke([this]() { return sourceProject; }));
         ON_CALL(*globalContext, currentNotation()).WillByDefault(Invoke([this]() { return notation; }));
+        ON_CALL(*globalContext, currentProjectChanged()).WillByDefault(Return(currentProjectChanged));
+        ON_CALL(*globalContext, currentNotationChanged()).WillByDefault(Return(currentNotationChanged));
         ON_CALL(*notation, isMaster()).WillByDefault(Return(true));
         ON_CALL(*notation, project()).WillByDefault(Return(sourceProject.get()));
         ON_CALL(*notation, masterNotation()).WillByDefault(Invoke([this]() { return master; }));
@@ -151,17 +153,19 @@ protected:
     std::unique_ptr<MasterScore> source;
     std::vector<Note*> selectedNotes;
     // The project is an identity handle only. Any call into it is unexpected.
-    std::shared_ptr<StrictMock<project::PreviewProjectMock>> sourceProject = std::make_shared<StrictMock<project::PreviewProjectMock>>();
-    std::shared_ptr<NiceMock<context::PreviewGlobalContextMock>> globalContext
-        = std::make_shared<NiceMock<context::PreviewGlobalContextMock>>();
-    std::shared_ptr<NiceMock<PreviewNotationMock>> notation = std::make_shared<NiceMock<PreviewNotationMock>>();
-    std::shared_ptr<NiceMock<PreviewMasterNotationMock>> master = std::make_shared<NiceMock<PreviewMasterNotationMock>>();
-    std::shared_ptr<NiceMock<PreviewElementsMock>> elements = std::make_shared<NiceMock<PreviewElementsMock>>();
-    std::shared_ptr<NiceMock<NotationInteractionMock>> interaction = std::make_shared<NiceMock<NotationInteractionMock>>();
-    std::shared_ptr<NiceMock<NotationSelectionMock>> selection = std::make_shared<NiceMock<NotationSelectionMock>>();
-    std::shared_ptr<NiceMock<PreviewUndoStackMock>> undoStack = std::make_shared<NiceMock<PreviewUndoStackMock>>();
+    std::shared_ptr<StrictMock<project::PreviewProjectMock> > sourceProject = std::make_shared<StrictMock<project::PreviewProjectMock> >();
+    std::shared_ptr<NiceMock<context::PreviewGlobalContextMock> > globalContext
+        = std::make_shared<NiceMock<context::PreviewGlobalContextMock> >();
+    std::shared_ptr<NiceMock<PreviewNotationMock> > notation = std::make_shared<NiceMock<PreviewNotationMock> >();
+    std::shared_ptr<NiceMock<PreviewMasterNotationMock> > master = std::make_shared<NiceMock<PreviewMasterNotationMock> >();
+    std::shared_ptr<NiceMock<PreviewElementsMock> > elements = std::make_shared<NiceMock<PreviewElementsMock> >();
+    std::shared_ptr<NiceMock<NotationInteractionMock> > interaction = std::make_shared<NiceMock<NotationInteractionMock> >();
+    std::shared_ptr<NiceMock<NotationSelectionMock> > selection = std::make_shared<NiceMock<NotationSelectionMock> >();
+    std::shared_ptr<NiceMock<PreviewUndoStackMock> > undoStack = std::make_shared<NiceMock<PreviewUndoStackMock> >();
     muse::async::Notification notationChanged;
     muse::async::Notification stackChanged;
+    muse::async::Notification currentProjectChanged;
+    muse::async::Notification currentNotationChanged;
 };
 
 TEST_F(NotationScene_PitchPreviewDialogTests, rendersIndependentScoresAndAdoptsSelectedCandidateAsOneUndoStep)
@@ -186,9 +190,9 @@ TEST_F(NotationScene_PitchPreviewDialogTests, rendersIndependentScoresAndAdoptsS
     ASSERT_NE(views[0]->widget(), nullptr);
     ASSERT_NE(views[1]->widget(), nullptr);
     SCOPED_TRACE(Message() << "before viewport=" << views[0]->viewport()->width() << 'x' << views[0]->viewport()->height()
-                          << ", canvas=" << views[0]->widget()->width() << 'x' << views[0]->widget()->height()
-                          << "; candidate viewport=" << views[1]->viewport()->width() << 'x' << views[1]->viewport()->height()
-                          << ", canvas=" << views[1]->widget()->width() << 'x' << views[1]->widget()->height());
+                           << ", canvas=" << views[0]->widget()->width() << 'x' << views[0]->widget()->height()
+                           << "; candidate viewport=" << views[1]->viewport()->width() << 'x' << views[1]->viewport()->height()
+                           << ", canvas=" << views[1]->widget()->width() << 'x' << views[1]->widget()->height());
     // Check what the user actually sees. A giant canvas can contain valid
     // engraving while its initially visible scroll viewport remains blank.
     const QImage before = views[0]->viewport()->grab().toImage();
@@ -260,6 +264,70 @@ TEST_F(NotationScene_PitchPreviewDialogTests, closingAfterCandidateSwitchLeavesS
     EXPECT_FALSE(source->undoStack()->hasActiveCommand());
 }
 
+TEST_F(NotationScene_PitchPreviewDialogTests, switchingProjectsAndReturningCannotAdoptOldCandidate)
+{
+    const QString original = snapshot(source.get());
+    const auto undoSize = source->undoStack()->size();
+    const bool clean = source->undoStack()->isClean();
+    EXPECT_CALL(*notation, notationChanged()).Times(0);
+    EXPECT_CALL(*undoStack, stackChanged()).Times(0);
+
+    PitchPreviewDialog dialog;
+    ASSERT_NE(selector(dialog), nullptr);
+    ASSERT_NE(adopt(dialog), nullptr);
+    ASSERT_TRUE(adopt(dialog)->isEnabled());
+    const auto originalProject = sourceProject;
+    sourceProject = std::make_shared<StrictMock<project::PreviewProjectMock> >();
+    currentProjectChanged.notify();
+    EXPECT_FALSE(adopt(dialog)->isEnabled());
+    EXPECT_FALSE(selector(dialog)->isEnabled());
+    sourceProject = originalProject;
+    currentProjectChanged.notify();
+
+    // Returning to the exact original object must not make an old proposal valid.
+    EXPECT_FALSE(adopt(dialog)->isEnabled());
+    EXPECT_FALSE(selector(dialog)->isEnabled());
+    selector(dialog)->setCurrentIndex(1);
+    EXPECT_FALSE(adopt(dialog)->isEnabled());
+    adopt(dialog)->click();
+    EXPECT_EQ(snapshot(source.get()), original);
+    EXPECT_EQ(source->undoStack()->size(), undoSize);
+    EXPECT_EQ(source->undoStack()->isClean(), clean);
+    EXPECT_FALSE(source->undoStack()->hasActiveCommand());
+}
+
+TEST_F(NotationScene_PitchPreviewDialogTests, switchingNotationsAndReturningCannotAdoptOldCandidate)
+{
+    const QString original = snapshot(source.get());
+    const auto undoSize = source->undoStack()->size();
+    const bool clean = source->undoStack()->isClean();
+    EXPECT_CALL(*notation, notationChanged()).Times(0);
+    EXPECT_CALL(*undoStack, stackChanged()).Times(0);
+
+    PitchPreviewDialog dialog;
+    ASSERT_NE(selector(dialog), nullptr);
+    ASSERT_NE(adopt(dialog), nullptr);
+    ASSERT_TRUE(adopt(dialog)->isEnabled());
+    const auto originalNotation = notation;
+    // A part of the same project has a different notation identity.
+    notation = std::make_shared<NiceMock<PreviewNotationMock> >();
+    currentNotationChanged.notify();
+    EXPECT_FALSE(adopt(dialog)->isEnabled());
+    EXPECT_FALSE(selector(dialog)->isEnabled());
+    notation = originalNotation;
+    currentNotationChanged.notify();
+
+    EXPECT_FALSE(adopt(dialog)->isEnabled());
+    EXPECT_FALSE(selector(dialog)->isEnabled());
+    selector(dialog)->setCurrentIndex(1);
+    EXPECT_FALSE(adopt(dialog)->isEnabled());
+    adopt(dialog)->click();
+    EXPECT_EQ(snapshot(source.get()), original);
+    EXPECT_EQ(source->undoStack()->size(), undoSize);
+    EXPECT_EQ(source->undoStack()->isClean(), clean);
+    EXPECT_FALSE(source->undoStack()->hasActiveCommand());
+}
+
 TEST_F(NotationScene_PitchPreviewDialogTests, mixedRegularAndGraceSelectionCannotBeRevivedBySwitchingCandidate)
 {
     // note_data/grace.mscx is the input for a test that creates grace notes;
@@ -286,7 +354,7 @@ TEST_F(NotationScene_PitchPreviewDialogTests, mixedRegularAndGraceSelectionCanno
         }
     }
     ASSERT_EQ(selectedNotes.size(), 2);
-    std::vector<std::pair<EngravingItem*, EID>> sourceIds;
+    std::vector<std::pair<EngravingItem*, EID> > sourceIds;
     source->scanElements([&sourceIds](EngravingItem* item) {
         sourceIds.emplace_back(item, item->eid());
     });

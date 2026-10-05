@@ -285,6 +285,9 @@ std::shared_ptr<EngravingProject> MasterScore::createPreviewProject()
     // Avoid the public factory's developer-statistics reset while editing a score.
     auto preview = std::shared_ptr<EngravingProject>(new EngravingProject(iocContext()));
     preview->init(style());
+    // Chord definitions normally live in a separate chordlist.xml, not score XML.
+    // Copy the value-owned tables before the loader resolves chord symbols.
+    *preview->masterScore()->chordList() = *chordList();
     XmlReader reader(buffer.data());
     if (!MscLoader().readMasterScore(preview->masterScore(), reader, true)) {
         return nullptr;

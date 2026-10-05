@@ -25,8 +25,6 @@ enum class PreviewPitchResult {
 
 // Use the same validated changes on a preview copy and, on adoption, on the source.
 // All targets are checked before mutation. A successful batch is one Undo step.
-PreviewPitchResult applyPreviewPitchChanges(MasterScore& score,
-                                           const std::vector<PreviewPitchChange>& changes,
-                                           const Fraction& start, const Fraction& end,
-                                           const std::vector<track_idx_t>& allowedTracks);
+PreviewPitchResult applyPreviewPitchChanges(MasterScore& score, const std::vector<PreviewPitchChange>& changes, const Fraction& start,
+                                            const Fraction& end, const std::vector<track_idx_t>& allowedTracks);
 }

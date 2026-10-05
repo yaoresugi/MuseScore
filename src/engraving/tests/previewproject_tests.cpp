@@ -5,9 +5,11 @@
 #include <QRegularExpression>
 #include <QTemporaryDir>
 
+#include "global/defer.h"
 #include "global/io/buffer.h"
 #include "engraving/engravingproject.h"
 #include "engraving/dom/chord.h"
+#include "engraving/dom/harmony.h"
 #include "engraving/dom/masterscore.h"
 #include "engraving/dom/measure.h"
 #include "engraving/dom/note.h"
@@ -20,6 +22,7 @@
 #include "engraving/editing/previewpitchchanges.h"
 #include "engraving/rw/rwregister.h"
 #include "engraving/rw/inoutdata.h"
+#include "mocks/engravingconfigurationmock.h"
 #include "utils/scorerw.h"
 
 using namespace mu::engraving;
@@ -325,6 +328,92 @@ TEST(Engraving_PreviewProjectTests, previewPreservesSystemLocks)
         EXPECT_EQ(copiedLocks[i]->endMB()->tick(), locks[i]->endMB()->tick());
         EXPECT_NE(copiedLocks[i]->startMB(), locks[i]->startMB());
     }
+}
+
+TEST(Engraving_PreviewProjectTests, previewPreservesCustomChordRenderingWithoutSharingEditableDefinitions)
+{
+    std::unique_ptr<MasterScore> original(ScoreRW::readScore(u"previewproject_data/four-parts.mscx"));
+    ASSERT_NE(original, nullptr);
+    auto* segment = original->firstSegment(SegmentType::ChordRest);
+    ASSERT_NE(segment, nullptr);
+    auto* harmony = new Harmony(segment);
+    harmony->setTrack(0);
+    harmony->setHarmony(u"C7");
+    segment->add(harmony);
+    const int chordId = harmony->id();
+    auto* chordList = original->chordList();
+    ASSERT_NE(chordList->find(chordId), chordList->end());
+    chordList->setCustomChordList(true);
+    chordList->at(chordId).renderList = { std::make_shared<RenderActionSet>(u"custom-voicing") };
+    original->doLayout();
+    auto renderedText = [](const Harmony* symbol) {
+        String result;
+        for (const auto* item : symbol->ldata()->renderItemList()) {
+            if (item->type() == HarmonyRenderItemType::TEXT) {
+                result += static_cast<const TextSegment*>(item)->text();
+            }
+        }
+        return result;
+    };
+    const String originalText = renderedText(harmony);
+    ASSERT_TRUE(originalText.contains(u"custom-voicing"));
+    const auto undoSize = original->undoStack()->size();
+
+    auto preview = original->createPreviewProject();
+    ASSERT_NE(preview, nullptr);
+    auto* candidate = preview->masterScore();
+    auto* candidateList = candidate->chordList();
+    EXPECT_TRUE(candidateList->customChordList());
+    Harmony* candidateHarmony = nullptr;
+    for (auto* item : candidate->firstSegment(SegmentType::ChordRest)->annotations()) {
+        if (item->isHarmony()) {
+            candidateHarmony = toHarmony(item);
+            break;
+        }
+    }
+    ASSERT_NE(candidateHarmony, nullptr);
+    EXPECT_EQ(renderedText(candidateHarmony), originalText);
+    ASSERT_NE(candidateList->find(chordId), candidateList->end());
+    EXPECT_NE(&candidateList->at(chordId), &chordList->at(chordId));
+    candidateList->at(chordId).renderList.clear();
+    candidateList->at(chordId).names.clear();
+    EXPECT_EQ(chordList->at(chordId).renderList.size(), 1);
+    EXPECT_FALSE(chordList->at(chordId).names.empty());
+    EXPECT_EQ(renderedText(harmony), originalText);
+    EXPECT_EQ(original->undoStack()->size(), undoSize);
+}
+
+TEST(Engraving_PreviewProjectTests, snapshotPreservesSystemLocksWhenNormalSavesOmitIds)
+{
+    std::unique_ptr<MasterScore> original(ScoreRW::readScore(u"system_locks_data/system_locks-1.mscx"));
+    ASSERT_NE(original, nullptr);
+    const auto locks = original->systemLocks()->allLocks();
+    ASSERT_FALSE(locks.empty());
+    rw::WriteInOutData data(original.get());
+    const auto configuration = std::dynamic_pointer_cast<EngravingConfigurationMock>(data.ctx.configuration());
+    ASSERT_NE(configuration, nullptr);
+    const bool previousSetting = configuration->doNotSaveEIDsForBackCompat();
+    ON_CALL(*configuration, doNotSaveEIDsForBackCompat()).WillByDefault(testing::Return(true));
+    DEFER {
+        ON_CALL(*configuration, doNotSaveEIDsForBackCompat()).WillByDefault(testing::Return(previousSetting));
+    };
+
+    auto preview = original->createPreviewProject();
+    ASSERT_NE(preview, nullptr);
+    const auto copiedLocks = preview->masterScore()->systemLocks()->allLocks();
+    ASSERT_EQ(copiedLocks.size(), locks.size());
+    for (size_t i = 0; i < locks.size(); ++i) {
+        EXPECT_EQ(copiedLocks[i]->startMB()->tick(), locks[i]->startMB()->tick());
+        EXPECT_EQ(copiedLocks[i]->endMB()->tick(), locks[i]->endMB()->tick());
+    }
+
+    // The internal snapshot override must not change the user's normal-save preference.
+    muse::io::Buffer normalSave;
+    ASSERT_TRUE(normalSave.open(muse::io::IODevice::WriteOnly));
+    ASSERT_TRUE(rw::RWRegister::writer(original->iocContext())->writeScore(original.get(), &normalSave));
+    normalSave.close();
+    EXPECT_FALSE(QString::fromUtf8(normalSave.data().toQByteArray()).contains("<eid>"));
+    EXPECT_TRUE(configuration->doNotSaveEIDsForBackCompat());
 }
 
 TEST(Engraving_PreviewProjectTests, invalidSecondChangeDoesNotApplyFirst)

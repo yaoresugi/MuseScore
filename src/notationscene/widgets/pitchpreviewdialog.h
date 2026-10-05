@@ -45,8 +45,7 @@ public:
 private:
     bool captureSource();
     bool buildPitchChanges();
-    bool collectChanges(const std::vector<engraving::Note*>& notes,
-                        std::vector<engraving::PreviewPitchChange>* up,
+    bool collectChanges(const std::vector<engraving::Note*>& notes, std::vector<engraving::PreviewPitchChange>* up,
                         std::vector<engraving::PreviewPitchChange>* down);
     bool refreshCandidate(int direction);
     void applyCandidate();

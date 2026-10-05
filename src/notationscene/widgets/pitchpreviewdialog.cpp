@@ -251,6 +251,18 @@ bool PitchPreviewDialog::captureSource()
         updateControls();
     });
 
+    // A round trip back to the original score must not revive this proposal.
+    const auto invalidateOnContextChange = [this]() {
+        if (m_adopted) {
+            return;
+        }
+        m_stale = true;
+        setStatus(tr("アクティブな元の譜面が変わりました。このプレビューを閉じて候補を作り直してください。"), true);
+        updateControls();
+    };
+    globalContext()->currentProjectChanged().onNotify(this, invalidateOnContextChange);
+    globalContext()->currentNotationChanged().onNotify(this, invalidateOnContextChange);
+
     return true;
 }
 
@@ -301,10 +313,10 @@ bool PitchPreviewDialog::buildPitchChanges()
 }
 
 bool PitchPreviewDialog::collectChanges(const std::vector<Note*>& notes,
-                                       std::vector<PreviewPitchChange>* up,
-                                       std::vector<PreviewPitchChange>* down)
+                                        std::vector<PreviewPitchChange>* up,
+                                        std::vector<PreviewPitchChange>* down)
 {
-    std::set<std::pair<Fraction, track_idx_t>> seen;
+    std::set<std::pair<Fraction, track_idx_t> > seen;
     bool hasRange = false;
     std::vector<PreviewPitchChange> collectedUp, collectedDown;
     std::vector<track_idx_t> collectedTracks;
@@ -462,5 +474,4 @@ void PitchPreviewDialog::setStatus(const QString& message, bool isError)
     m_statusLabel->setText(message);
     m_statusLabel->setStyleSheet(isError ? QStringLiteral("color: #b3261e;") : QString());
 }
-
 } // namespace mu::notation

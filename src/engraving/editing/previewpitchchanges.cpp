@@ -13,9 +13,9 @@
 
 namespace mu::engraving {
 PreviewPitchResult applyPreviewPitchChanges(MasterScore& score,
-                                           const std::vector<PreviewPitchChange>& changes,
-                                           const Fraction& start, const Fraction& end,
-                                           const std::vector<track_idx_t>& allowedTracks)
+                                            const std::vector<PreviewPitchChange>& changes,
+                                            const Fraction& start, const Fraction& end,
+                                            const std::vector<track_idx_t>& allowedTracks)
 {
     if (changes.empty()) {
         return PreviewPitchResult::Empty;
@@ -26,7 +26,7 @@ PreviewPitchResult applyPreviewPitchChanges(MasterScore& score,
     if (start < Fraction(0, 1) || end <= start || allowedTracks.empty()) {
         return PreviewPitchResult::InvalidScope;
     }
-    std::set<std::pair<Fraction, track_idx_t>> addresses;
+    std::set<std::pair<Fraction, track_idx_t> > addresses;
     std::vector<Note*> notes;
     notes.reserve(changes.size());
     for (const auto& change : changes) {

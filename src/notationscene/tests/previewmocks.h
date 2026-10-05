@@ -54,7 +54,7 @@ public:
     MOCK_METHOD(muse::Ret, save, (const muse::io::path_t& path, SaveMode saveMode, bool createBackup), (override));
     MOCK_METHOD(muse::Ret, savePage, (const muse::io::path_t& path, const size_t pageNum), (override));
     MOCK_METHOD((muse::async::Channel<muse::io::path_t, SaveMode>), saveComplited, (), (const, override));
-    MOCK_METHOD(muse::Ret, writeToDevice, (QIODevice* device), (override));
+    MOCK_METHOD(muse::Ret, writeToDevice, (QIODevice * device), (override));
     MOCK_METHOD(ProjectMeta, metaInfo, (), (const, override));
     MOCK_METHOD(void, setMetaInfo, (const ProjectMeta& meta, bool undoable), (override));
     MOCK_METHOD(notation::IMasterNotationPtr, masterNotation, (), (const, override));
@@ -101,10 +101,11 @@ class PreviewMasterNotationMock : public IMasterNotation
 {
 public:
     MOCK_METHOD(project::INotationProject*, project, (), (const, override));
-    MOCK_METHOD(muse::Ret, setupNewScore, (engraving::MasterScore* score, const ScoreCreateOptions& options), (override));
-    MOCK_METHOD(void, applyOptions, (engraving::MasterScore* score, const ScoreCreateOptions& options, bool createdFromTemplate), (override));
+    MOCK_METHOD(muse::Ret, setupNewScore, (engraving::MasterScore * score, const ScoreCreateOptions& options), (override));
+    MOCK_METHOD(void, applyOptions, (engraving::MasterScore * score, const ScoreCreateOptions& options, bool createdFromTemplate),
+                (override));
     MOCK_METHOD(engraving::MasterScore*, masterScore, (), (const, override));
-    MOCK_METHOD(void, setMasterScore, (engraving::MasterScore* masterScore), (override));
+    MOCK_METHOD(void, setMasterScore, (engraving::MasterScore * masterScore), (override));
     MOCK_METHOD(INotationPtr, notation, (), (override));
     MOCK_METHOD(int, mscVersion, (), (const, override));
     MOCK_METHOD(IExcerptNotationPtr, createEmptyExcerpt, (const QString& name), (const, override));
@@ -114,7 +115,7 @@ public:
     MOCK_METHOD(void, initExcerpts, (const ExcerptNotationList& excerpts), (override));
     MOCK_METHOD(void, setExcerpts, (const ExcerptNotationList& excerpts), (override));
     MOCK_METHOD(void, resetExcerpt, (IExcerptNotationPtr excerpt), (override));
-    MOCK_METHOD(void, sortExcerpts, (ExcerptNotationList& excerpts), (override));
+    MOCK_METHOD(void, sortExcerpts, (ExcerptNotationList & excerpts), (override));
     MOCK_METHOD(void, setExcerptIsOpen, (const INotationPtr excerptNotation, bool opened), (override));
     MOCK_METHOD(INotationPartsPtr, parts, (), (const, override));
     MOCK_METHOD(bool, hasParts, (), (const, override));
