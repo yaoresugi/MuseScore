@@ -432,6 +432,12 @@ const UiActionList NotationUiActions::s_actions = {
              TranslatableString("action", "&Explode"),
              TranslatableString("action", "Explode")
              ),
+    UiAction("pitch-preview",
+             mu::context::UiCtxProjectOpened,
+             mu::context::CTX_NOTATION_OPENED,
+             TranslatableString("action", "Compare pitch alternatives…"),
+             TranslatableString("action", "Compare pitch alternatives")
+             ),
     UiAction("implode",
              mu::context::UiCtxProjectOpened,
              mu::context::CTX_NOTATION_OPENED,

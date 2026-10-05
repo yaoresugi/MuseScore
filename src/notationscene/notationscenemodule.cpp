@@ -37,6 +37,7 @@
 #include "widgets/editstyle.h"
 #include "widgets/measureproperties.h"
 #include "widgets/pagesettings.h"
+#include "widgets/pitchpreviewdialog.h"
 #include "widgets/realizeharmonydialog.h"
 #include "widgets/selectdialog.h"
 #include "widgets/selectnotedialog.h"
@@ -82,6 +83,7 @@ void NotationSceneModule::resolveImports()
         ir->registerWidgetUri<EditStaff>(Uri("musescore://notation/staffproperties"));
         ir->registerWidgetUri<EditStringData>(Uri("musescore://notation/editstrings"));
         ir->registerWidgetUri<TransposeDialog>(Uri("musescore://notation/transpose"));
+        ir->registerWidgetUri<PitchPreviewDialog>(Uri("musescore://notation/pitchpreview"));
         ir->registerWidgetUri<SelectNoteDialog>(Uri("musescore://notation/selectnote"));
         ir->registerWidgetUri<SelectDialog>(Uri("musescore://notation/selectelement"));
         ir->registerWidgetUri<TupletDialog>(Uri("musescore://notation/othertupletdialog"));

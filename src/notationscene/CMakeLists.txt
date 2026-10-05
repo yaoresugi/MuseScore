@@ -56,3 +56,7 @@ target_link_libraries(notationscene PRIVATE
 if (MUE_BUILD_NOTATIONSCENE_QML)
     add_subdirectory(qml/MuseScore/NotationScene)
 endif()
+
+if(MUE_BUILD_NOTATIONSCENE_TESTS)
+    add_subdirectory(tests)
+endif()

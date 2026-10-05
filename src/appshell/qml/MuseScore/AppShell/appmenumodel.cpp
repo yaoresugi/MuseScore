@@ -396,6 +396,7 @@ MenuItem* AppMenuModel::makeToolsMenu()
     };
 
     MenuItemList toolsItems {
+        makeMenuItem("pitch-preview"),
         makeMenuItem("transpose"),
         makeSeparator(),
         makeMenuItem("explode"),

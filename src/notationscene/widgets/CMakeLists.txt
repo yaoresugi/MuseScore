@@ -47,6 +47,8 @@ target_sources(notationscene PRIVATE
     offsetSelect.h
     pagesettings.cpp
     pagesettings.h
+    pitchpreviewdialog.cpp
+    pitchpreviewdialog.h
     realizeharmonydialog.cpp
     realizeharmonydialog.h
     selectdialog.cpp

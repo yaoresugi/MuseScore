@@ -313,6 +313,7 @@ void NotationActionController::init()
     registerAction("edit-strings", &Controller::openEditStringsDialog);
     registerAction("measures-per-system", &Controller::openBreaksDialog);
     registerAction("transpose", &Controller::openTransposeDialog);
+    registerAction("pitch-preview", &Controller::openPitchPreviewDialog);
     registerAction("parts", &Controller::openPartsDialog);
     registerAction("staff-text-properties", &Controller::openStaffTextPropertiesDialog);
     registerAction("system-text-properties", &Controller::openStaffTextPropertiesDialog);
@@ -1821,6 +1822,11 @@ void NotationActionController::openTransposeDialog()
     interactive()->open("musescore://notation/transpose").onResolve(this, [this](const Val&) {
         currentNotationInteraction()->checkAndShowError();
     });
+}
+
+void NotationActionController::openPitchPreviewDialog()
+{
+    interactive()->open("musescore://notation/pitchpreview");
 }
 
 void NotationActionController::openPartsDialog()
