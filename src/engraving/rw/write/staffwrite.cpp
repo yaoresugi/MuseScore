@@ -47,7 +47,10 @@ static void writeMeasure(XmlWriter& xml, WriteContext& ctx, MeasureBase* m,
         }
     }
 
-    if (m->score()->style().styleB(Sid::createMultiMeasureRests) && m->isMeasure() && toMeasure(m)->mmRest()) {
+    // Snapshot loading rebuilds generated rests from real measures; hidden staffs
+    // may not have generated rest layout without the normal save-time relayout.
+    if (!ctx.snapshotMode() && m->score()->style().styleB(Sid::createMultiMeasureRests)
+        && m->isMeasure() && toMeasure(m)->mmRest()) {
         MeasureWrite::writeMeasure(toMeasure(m)->mmRest(), xml, ctx, staffIdx, writeSystemElements, forceTimeSig);
     }
 

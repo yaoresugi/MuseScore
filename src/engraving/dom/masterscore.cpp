@@ -28,6 +28,7 @@
 #include "rw/mscloader.h"
 #include "rw/xmlreader.h"
 #include "rw/rwregister.h"
+#include "rw/inoutdata.h"
 
 #include "style/defaultstyle.h"
 
@@ -266,6 +267,36 @@ MasterScore* MasterScore::clone()
 
     score->doLayout();
     return score;
+}
+
+std::shared_ptr<EngravingProject> MasterScore::createPreviewProject()
+{
+    Buffer buffer;
+    if (!buffer.open(IODevice::WriteOnly)) {
+        return nullptr;
+    }
+    rw::WriteInOutData snapshot(this);
+    snapshot.ctx.setSnapshotMode(true);
+    if (!rw::RWRegister::writer(iocContext())->writeScore(this, &buffer, &snapshot)) {
+        return nullptr;
+    }
+    buffer.close();
+
+    // Avoid the public factory's developer-statistics reset while editing a score.
+    auto preview = std::shared_ptr<EngravingProject>(new EngravingProject(iocContext()));
+    preview->init(style());
+    // Chord definitions normally live in a separate chordlist.xml, not score XML.
+    // Copy the value-owned tables before the loader resolves chord symbols.
+    *preview->masterScore()->chordList() = *chordList();
+    XmlReader reader(buffer.data());
+    if (!MscLoader().readMasterScore(preview->masterScore(), reader, true)) {
+        return nullptr;
+    }
+    if (!preview->setupMasterScore(false)) {
+        return nullptr;
+    }
+    preview->masterScore()->doLayout();
+    return preview;
 }
 
 Score* MasterScore::createScore()

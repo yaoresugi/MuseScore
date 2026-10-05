@@ -25,6 +25,28 @@
 using namespace mu::engraving;
 using namespace mu::engraving::write;
 
+void WriteContext::resetSnapshotState()
+{
+    m_snapshotEids.clear();
+    m_snapshotWrittenSegments.clear();
+}
+
+EID WriteContext::snapshotEid(const EngravingObject* item)
+{
+    EID eid = item->eid();
+    if (eid.isValid()) {
+        return eid;
+    }
+    auto it = m_snapshotEids.find(item);
+    if (it != m_snapshotEids.end()) {
+        return it->second;
+    }
+    // Keep transient IDs local: assignNewEID() would change the source register.
+    eid = EID::newUnique();
+    m_snapshotEids.emplace(item, eid);
+    return eid;
+}
+
 bool WriteContext::canWrite(const EngravingItem* e) const
 {
     if (!_filter.has_value()) {

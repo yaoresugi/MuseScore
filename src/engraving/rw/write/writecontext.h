@@ -21,6 +21,9 @@
  */
 #pragma once
 
+#include <unordered_map>
+#include <unordered_set>
+
 #include "containers.h"
 
 #include "engraving/dom/select.h"
@@ -69,6 +72,15 @@ public:
     bool clipboardmode() const { return _clipboardmode; }
     void setClipboardmode(bool v) { _clipboardmode = v; }
 
+    // Full-score snapshots must not update the live score as saving normally does.
+    bool snapshotMode() const { return m_snapshotMode; }
+    void setSnapshotMode(bool v) { m_snapshotMode = v; }
+    bool hasSelectionFilter() const { return _filter.has_value(); }
+    void resetSnapshotState();
+    EID snapshotEid(const EngravingObject* item);
+    bool markSnapshotSegmentWritten(const Segment* segment) { return m_snapshotWrittenSegments.insert(segment).second; }
+    void resetSnapshotSegmentWritten(const Segment* segment) { m_snapshotWrittenSegments.erase(segment); }
+
     void setFilter(const SelectionFilter& f) { _filter = f; }
     bool canWrite(const EngravingItem*) const;
     bool canWriteNoteIdx(size_t noteIdx, size_t totalNotesInChord) const;
@@ -85,6 +97,7 @@ public:
                && _curTrack == c._curTrack
                && _trackDiff == c._trackDiff
                && _clipboardmode == c._clipboardmode
+               && m_snapshotMode == c.m_snapshotMode
                && _filter == c._filter
                && _range == c._range;
     }
@@ -101,6 +114,10 @@ private:
     int _trackDiff       { 0 };             // saved track is curTrack-trackDiff
 
     bool _clipboardmode  { false };     // used to modify write() behaviour
+
+    bool m_snapshotMode = false;
+    std::unordered_map<const EngravingObject*, EID> m_snapshotEids;
+    std::unordered_set<const Segment*> m_snapshotWrittenSegments;
 
     std::optional<WriteRange> _range;
     std::optional<SelectionFilter> _filter;

@@ -225,7 +225,7 @@ public:
 
     static void write(const Image* item, XmlWriter& xml, WriteContext& ctx);
     static void write(const Instrument* item, XmlWriter& xml, WriteContext& ctx, const Part* part);
-    static void write(const InstrChannel* item, XmlWriter& xml, const Part* part);
+    static void write(const InstrChannel* item, XmlWriter& xml, const Part* part, bool snapshotMode = false);
     static void write(const InstrumentChange* item, XmlWriter& xml, WriteContext& ctx);
 
     static void write(const Jump* item, XmlWriter& xml, WriteContext& ctx);
@@ -315,7 +315,7 @@ public:
 
     static void writeProperty(const EngravingItem* item, XmlWriter& xml, Pid pid, bool force = false);
 
-    static void writeSystemLocks(const Score* score, XmlWriter& xml);
+    static void writeSystemLocks(const Score* score, XmlWriter& xml, WriteContext& ctx);
     static void writeSystemDividers(const Score* score, XmlWriter& xml, WriteContext& ctx);
 
     static void writeItemEid(const EngravingObject* item, XmlWriter& xml, WriteContext& ctx);
@@ -361,7 +361,7 @@ private:
     static void writeTupletStart(DurationElement* item, XmlWriter& xml, WriteContext& ctx);
     static void writeTupletEnd(DurationElement* item, XmlWriter& xml, WriteContext& ctx);
 
-    static void writeSystemLock(const SystemLock* systemLock, XmlWriter& xml);
+    static void writeSystemLock(const SystemLock* systemLock, XmlWriter& xml, WriteContext& ctx);
 
     static void lineBreakToTag(String& str);
 };

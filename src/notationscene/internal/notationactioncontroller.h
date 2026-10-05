@@ -154,6 +154,7 @@ private:
     void openEditStringsDialog();
     void openBreaksDialog();
     void openTransposeDialog();
+    void openPitchPreviewDialog();
     void openPartsDialog();
     void openTupletOtherDialog();
     void openStaffTextPropertiesDialog();
