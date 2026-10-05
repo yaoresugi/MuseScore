@@ -84,6 +84,9 @@ public:
 
     ~MasterScore();
     MasterScore* clone();
+    // An independently owned score for unadopted previews. Does not change this score.
+    // Returns nullptr if native serialization or loading fails.
+    std::shared_ptr<EngravingProject> createPreviewProject();
 
     Score* createScore();
     Score* createScore(const MStyle& s);

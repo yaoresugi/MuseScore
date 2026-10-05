@@ -447,7 +447,7 @@ void TWrite::writeProperty(const EngravingItem* item, XmlWriter& xml, Pid pid, b
     xml.tagProperty(pid, p, d);
 }
 
-void TWrite::writeSystemLocks(const Score* score, XmlWriter& xml)
+void TWrite::writeSystemLocks(const Score* score, XmlWriter& xml, WriteContext& ctx)
 {
     std::vector<const SystemLock*> locks = score->systemLocks()->allLocks();
     if (locks.empty()) {
@@ -456,7 +456,7 @@ void TWrite::writeSystemLocks(const Score* score, XmlWriter& xml)
 
     xml.startElement("SystemLocks");
     for (const SystemLock* sl : locks) {
-        writeSystemLock(sl, xml);
+        writeSystemLock(sl, xml, ctx);
     }
     xml.endElement();
 }
@@ -498,7 +498,7 @@ void TWrite::writeItemEid(const EngravingObject* item, XmlWriter& xml, WriteCont
         return;
     }
 
-    EID eid = item->eid();
+    EID eid = ctx.snapshotMode() ? ctx.snapshotEid(item) : item->eid();
     if (!eid.isValid()) {
         eid = item->assignNewEID();
     }
@@ -518,18 +518,20 @@ void TWrite::writeItemLink(const EngravingObject* item, XmlWriter& xml, WriteCon
 
     EngravingItem* mainElement = static_cast<EngravingItem*>(item->links()->mainElement());
     if (mainElement != item) {
-        EID eidOfMainElement = mainElement->eid();
+        EID eidOfMainElement = ctx.snapshotMode() ? ctx.snapshotEid(mainElement) : mainElement->eid();
         DO_ASSERT(eidOfMainElement.isValid());
         xml.tag("linkedTo", eidOfMainElement.toStdString());
     }
 }
 
-void TWrite::writeSystemLock(const SystemLock* systemLock, XmlWriter& xml)
+void TWrite::writeSystemLock(const SystemLock* systemLock, XmlWriter& xml, WriteContext& ctx)
 {
     xml.startElement("systemLock");
 
-    xml.tag("startMeasure", systemLock->startMB()->eid().toStdString());
-    xml.tag("endMeasure", systemLock->endMB()->eid().toStdString());
+    const EID startEid = ctx.snapshotMode() ? ctx.snapshotEid(systemLock->startMB()) : systemLock->startMB()->eid();
+    const EID endEid = ctx.snapshotMode() ? ctx.snapshotEid(systemLock->endMB()) : systemLock->endMB()->eid();
+    xml.tag("startMeasure", startEid.toStdString());
+    xml.tag("endMeasure", endEid.toStdString());
 
     xml.endElement();
 }
@@ -552,7 +554,13 @@ void TWrite::writeItemProperties(const EngravingItem* item, XmlWriter& xml, Writ
     writeItemEid(item, xml, ctx);
 
     bool autoplaceEnabled = item->score()->style().styleB(Sid::autoplaceEnabled);
-    if (!autoplaceEnabled) {
+    if (ctx.snapshotMode()) {
+        // autoplace() includes the global style switch. Saving stores the item's
+        // own flag, so read it directly without temporarily changing live style.
+        if (!item->isStyled(Pid::AUTOPLACE)) {
+            xml.tagProperty(Pid::AUTOPLACE, !item->flag(ElementFlag::NO_AUTOPLACE), item->propertyDefault(Pid::AUTOPLACE));
+        }
+    } else if (!autoplaceEnabled) {
         item->score()->style().set(Sid::autoplaceEnabled, true);
         writeProperty(item, xml, Pid::AUTOPLACE);
         item->score()->style().set(Sid::autoplaceEnabled, autoplaceEnabled);
@@ -1903,7 +1911,7 @@ void TWrite::write(const Image* item, XmlWriter& xml, WriteContext& ctx)
     xml.endElement();
 }
 
-void TWrite::write(const Instrument* item, XmlWriter& xml, WriteContext&, const Part* part)
+void TWrite::write(const Instrument* item, XmlWriter& xml, WriteContext& ctx, const Part* part)
 {
     if (item->id().isEmpty()) {
         xml.startElement("Instrument");
@@ -1984,7 +1992,7 @@ void TWrite::write(const Instrument* item, XmlWriter& xml, WriteContext&, const 
         write(&a, xml);
     }
     for (const InstrChannel* a : item->channel()) {
-        write(a, xml, part);
+        write(a, xml, part, ctx.snapshotMode());
     }
     xml.endElement();
 }
@@ -2021,8 +2029,14 @@ static void midi_event_write(const MidiCoreEvent& e, XmlWriter& xml)
     }
 }
 
-void TWrite::write(const InstrChannel* item, XmlWriter& xml, const Part* part)
+void TWrite::write(const InstrChannel* item, XmlWriter& xml, const Part* part, bool snapshotMode)
 {
+    // initList() updates a mutable cache even on a const channel.
+    std::optional<InstrChannel> snapshotChannel;
+    if (snapshotMode) {
+        snapshotChannel.emplace(*item);
+        item = &snapshotChannel.value();
+    }
     if (item->name().isEmpty() || item->name() == InstrChannel::DEFAULT_NAME) {
         xml.startElement("Channel");
     } else {
@@ -2065,7 +2079,10 @@ void TWrite::write(const InstrChannel* item, XmlWriter& xml, const Part* part)
         xml.tag("synti", item->synti());
     }
 
-    if (part && part->masterScore()->exportMidiMapping() && part->score() == part->masterScore()) {
+    if (part && part->score() == part->masterScore()
+        && (snapshotMode ? (item->channel() >= 0
+                           && static_cast<size_t>(item->channel()) < part->masterScore()->midiMapping().size())
+            : part->masterScore()->exportMidiMapping())) {
         xml.tag("midiPort",    part->masterScore()->midiMapping(item->channel())->port());
         xml.tag("midiChannel", part->masterScore()->midiMapping(item->channel())->channel());
     }
@@ -2652,12 +2669,18 @@ void TWrite::write(const Rest* item, XmlWriter& xml, WriteContext& ctx)
     xml.endElement();
 }
 
-void TWrite::write(const Segment* item, XmlWriter& xml, WriteContext&)
+void TWrite::write(const Segment* item, XmlWriter& xml, WriteContext& ctx)
 {
-    if (item->written()) {
-        return;
+    if (ctx.snapshotMode()) {
+        if (!ctx.markSnapshotSegmentWritten(item)) {
+            return;
+        }
+    } else {
+        if (item->written()) {
+            return;
+        }
+        item->setWritten(true);
     }
-    item->setWritten(true);
     if (item->extraLeadingSpace().isZero()) {
         return;
     }
@@ -3488,7 +3511,11 @@ void TWrite::writeSegments(XmlWriter& xml, WriteContext& ctx, track_idx_t strack
                 continue;
             }
             if (track == 0) {
-                segment->setWritten(false);
+                if (ctx.snapshotMode()) {
+                    ctx.resetSnapshotSegmentWritten(segment);
+                } else {
+                    segment->setWritten(false);
+                }
             }
             EngravingItem* e = segment->element(track);
 

@@ -105,6 +105,7 @@ target_sources(engraving PRIVATE
     editing/cmd.cpp
     editing/cmd.h
     editing/edit.cpp
+    editing/previewpitchchanges.h
     editing/editbrackets.cpp
     editing/editbrackets.h
     editing/editcapo.cpp
@@ -412,6 +413,10 @@ target_include_directories(engraving PRIVATE
     infrastructure
     ${PROJECT_SOURCE_DIR}/thirdparty/dtl
 )
+
+# Keep this extension out of unity groups so existing source grouping is stable.
+set_source_files_properties(editing/previewpitchchanges.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+target_sources(engraving PRIVATE editing/previewpitchchanges.cpp)
 
 target_link_libraries(engraving PRIVATE muse::draw)
 

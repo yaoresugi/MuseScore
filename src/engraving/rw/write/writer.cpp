@@ -28,6 +28,7 @@
 #include "dom/part.h"
 #include "dom/excerpt.h"
 #include "dom/staff.h"
+#include "editing/undo.h"
 
 #include "../xmlwriter.h"
 #include "../inoutdata.h"
@@ -54,6 +55,15 @@ bool Writer::writeScore(Score* score, io::IODevice* device, rw::WriteInOutData* 
         ctx = inout->ctx;
     }
 
+    if (ctx.snapshotMode()) {
+        // A snapshot is a complete, stable score, never a clipboard selection.
+        if (score->undoStack()->hasActiveCommand() || score->undoStack()->isLocked()
+            || ctx.shouldWriteRange() || ctx.clipboardmode() || ctx.hasSelectionFilter()) {
+            return false;
+        }
+        ctx.resetSnapshotState();
+    }
+
     xml.startDocument();
 
     xml.startElement("museScore", { { "version", Constants::MSC_VERSION_STR } });
@@ -69,7 +79,7 @@ bool Writer::writeScore(Score* score, io::IODevice* device, rw::WriteInOutData* 
     xml.endElement();
     xml.flush();
 
-    if (!inout || !inout->ctx.shouldWriteRange()) {
+    if (!ctx.snapshotMode() && (!inout || !inout->ctx.shouldWriteRange())) {
         //update version values for i.e. plugin access
         score->m_mscoreVersion = application()->version().toString();
         score->m_mscoreRevision = application()->revision().toInt(nullptr, 16);
@@ -93,7 +103,7 @@ void Writer::write(Score* score, XmlWriter& xml, WriteContext& ctx, compat::Writ
 
     std::vector<Part*> hiddenParts;
     bool unhide = false;
-    if (score->style().styleB(Sid::createMultiMeasureRests)) {
+    if (!ctx.snapshotMode() && score->style().styleB(Sid::createMultiMeasureRests)) {
         for (Part* part : score->m_parts) {
             if (!part->show()) {
                 if (!unhide) {
@@ -233,7 +243,9 @@ void Writer::write(Score* score, XmlWriter& xml, WriteContext& ctx, compat::Writ
     ctx.setCurTrack(0);
 
     // Let's decide: write midi mapping to a file or not
-    score->masterScore()->checkMidiMapping();
+    if (!ctx.snapshotMode()) {
+        score->masterScore()->checkMidiMapping();
+    }
 
     auto shouldWritePart = [&ctx, score, staffStart, staffEnd](const Part* part) {
         if (!ctx.shouldWriteRange()) {
@@ -265,7 +277,7 @@ void Writer::write(Score* score, XmlWriter& xml, WriteContext& ctx, compat::Writ
 
     hook.onWriteExcerpts302(score, xml, ctx);
 
-    TWrite::writeSystemLocks(score, xml);
+    TWrite::writeSystemLocks(score, xml, ctx);
     TWrite::writeSystemDividers(score, xml, ctx);
 
     xml.endElement(); // score
